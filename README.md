@@ -1,7 +1,7 @@
 #  FuckYourACE
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Release](https://img.shields.io/github/v/release/Xixoaixnmm/FuckYourACE.svg?style=flat-square)](https://github.com/Xixoaixnmm/FuckYourACE/releases)
+[![Release](https://img.shields.io/github/v/release/xiaoxinmm/FuckYourACE.svg?style=flat-square)](https://github.com/xiaoxinmm/FuckYourACE/releases)
 
 **一个专治进程 CPU 占用过高的小工具。**
 
@@ -39,7 +39,7 @@
 
 ## 🚀 如何使用 (面向用户)
 
-1.  前往本项目的 [**Releases 页面**](https://github.com/Xixoaixnmm/FuckYourACE/releases)（你需要先在 GitHub 上创建 Release 并上传打包好的程序）。
+1.  前往本项目的 [**Releases 页面**](https://github.com/xiaoxinmm/FuckYourACE/releases)（你需要先在 GitHub 上创建 Release 并上传打包好的程序）。
 2.  下载最新的 `FuckYourACE.exe` 文件。
 3.  **直接双击运行**。程序启动时会自动请求管理员权限（因为修改进程需要高权限）。
 4.  程序启动后会显示日志，并自动开始循环执行。你只需将它最小化即可。
@@ -52,7 +52,7 @@
 
 1.  **克隆仓库**
     ```bash
-    git clone [https://github.com/Xixoaixnmm/FuckYourACE.git](https://github.com/Xixoaixnmm/FuckYourACE.git)
+    git clone [https://github.com/xiaoxinmm/FuckYourACE.git](https://github.com/xiaoxinmm/FuckYourACE.git)
     cd FuckYourACE
     ```
 2.  **安装前端依赖**
