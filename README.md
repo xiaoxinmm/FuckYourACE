@@ -57,7 +57,7 @@
 
 1.  **克隆仓库**
     ```bash
-    git clone [https://github.com/xiaoxinmm/FuckYourACE.git](https://github.com/xiaoxinmm/FuckYourACE.git)
+    git clone https://github.com/xiaoxinmm/FuckYourACE.git
     cd FuckYourACE
     ```
 2.  **安装前端依赖**
