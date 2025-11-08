@@ -3,7 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Release](https://img.shields.io/github/v/release/xiaoxinmm/FuckYourACE.svg?style=flat-square)](https://github.com/xiaoxinmm/FuckYourACE/releases)
 
-**一个专治进程 CPU 占用过高的小工具。**
+**一个专治进程 CPU 占用过高的小工具。（请管理员运行！）**
 
 ## 🖥️ 界面预览
 ![FuckYourACE 运行截图](FYourACE_screenshot.png)
@@ -34,7 +34,7 @@
     * 将这些进程的 CPU 优先级设置为**“最低”（Idle）**。
 5.  **循环往复**：完成上述操作后，程序会显示一个 60 秒倒计时，然后重复整个流程，以确保设置持续生效，防止目标进程“越狱”。
 
----
+
 ---
 
 ## 🚀 如何使用 (面向用户)
