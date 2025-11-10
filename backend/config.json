@@ -1,0 +1,9 @@
+{
+  "process_list": [
+    "SGuard64.exe",
+    "SGuardSvc64.exe",
+    "amsvcep.exe",
+    "another-proc.exe"
+  ],
+  "announcement": "🔥 v1.0.2 版已发布！"
+}

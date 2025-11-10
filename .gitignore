@@ -16,3 +16,9 @@
 .idea
 .vscode
 *.DS_Store
+
+# 忽略后台的运行时文件和编译产物
+/backend/stats.json
+/backend/fya_backend.log
+/backend/fya_server
+/backend/fya_server.exe
