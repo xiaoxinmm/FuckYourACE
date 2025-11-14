@@ -17,25 +17,29 @@
         </div>
     </div>
 
-    <div id="log-container"></div>
+    <div class="status-panel">
+        <div id="binding-card" class="binding-card hidden">
+            <div class="binding-header">
+                <div id="binding-execution" class="binding-title">第 0 次执行</div>
+                <span id="binding-level" class="binding-badge info">INFO</span>
+            </div>
+            <div class="binding-meta">
+                <div>状态说明: <span id="binding-message">-</span></div>
+                <div>策略: <span id="binding-core-mode">-</span></div>
+                <div>目标核心: <span id="binding-target-core">-</span></div>
+                <div>能效核: <span id="binding-efficient-cores">-</span></div>
+                <div>目标进程: <span id="binding-target-processes">-</span></div>
+                <div>找到 PID: <span id="binding-found-pids">-</span></div>
+                <div>结果统计: <span id="binding-result-summary">-</span></div>
+            </div>
+            <div id="binding-processes" class="binding-processes"></div>
+        </div>
+    </div>
 
     <div class="footer">
-
-        <div class="footer-stats">
-            <div>
-                <span>当前在线:</span>
-                <span id="online-users">...</span>
-            </div>
-            <div>
-                <span>累计执行:</span>
-                <span id="total-runs">...</span>
-            </div>
-        </div>
-
         <div class="footer-info">
             <p>小工具作者: @罗素-Russell</p>
             <p>版本: v1.0.2</p>
-            <p id="log-path-display" class="log-path"></p>
         </div>
 
         <div class="footer-links">

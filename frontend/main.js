@@ -5,59 +5,111 @@ import './style.css';
 import { EventsOn, EventsEmit } from './wailsjs/runtime';
 
 // --- 1. 获取所有 DOM 元素 ---
-const logContainer = document.getElementById('log-container');
 const progressBarInner = document.querySelector('.progress-bar-inner');
 const progressBarText = document.querySelector('.progress-bar-text');
-const onlineUsersEl = document.getElementById('online-users');
-const totalRunsEl = document.getElementById('total-runs');
-const logPathEl = document.getElementById('log-path-display');
+const bindingCard = document.getElementById('binding-card');
+const bindingExecutionEl = document.getElementById('binding-execution');
+const bindingLevelEl = document.getElementById('binding-level');
+const bindingMessageEl = document.getElementById('binding-message');
+const bindingCoreModeEl = document.getElementById('binding-core-mode');
+const bindingTargetCoreEl = document.getElementById('binding-target-core');
+const bindingEfficientCoresEl = document.getElementById('binding-efficient-cores');
+const bindingTargetProcessesEl = document.getElementById('binding-target-processes');
+const bindingFoundPIDsEl = document.getElementById('binding-found-pids');
+const bindingResultSummaryEl = document.getElementById('binding-result-summary');
+const bindingProcessesEl = document.getElementById('binding-processes');
 
-/**
- * 统一的日志添加函数
- * @param {string} msg - 要显示的消息
- * @param {string} [className='info'] - 'info', 'warn', 'error', 'success', 'highlight', 'system'
- */
-function addLog(msg, className = 'info') {
-    if (!logContainer) return;
+function renderBindingStatus(data) {
+    if (!bindingCard) {
+        return;
+    }
+    bindingCard.classList.remove('hidden');
 
-    // 检查是否应该保持在底部
-    const isScrolledToBottom = logContainer.scrollHeight - logContainer.clientHeight <= logContainer.scrollTop + 5;
+    if (bindingExecutionEl) {
+        bindingExecutionEl.textContent = `第 ${data.execution ?? 0} 次执行`;
+    }
+    if (bindingLevelEl) {
+        bindingLevelEl.textContent = (data.level || 'info').toUpperCase();
+        bindingLevelEl.className = `binding-badge ${data.level || 'info'}`;
+    }
+    if (bindingMessageEl) {
+        bindingMessageEl.textContent = data.message || '-';
+    }
+    if (bindingCoreModeEl) {
+        bindingCoreModeEl.textContent = formatCoreMode(data.core_mode);
+    }
+    if (bindingTargetCoreEl) {
+        bindingTargetCoreEl.textContent = data.target_core !== undefined ? data.target_core : '-';
+    }
+    if (bindingEfficientCoresEl) {
+        bindingEfficientCoresEl.textContent = Array.isArray(data.efficient_cores) && data.efficient_cores.length
+            ? data.efficient_cores.join(', ')
+            : '无';
+    }
+    if (bindingTargetProcessesEl) {
+        bindingTargetProcessesEl.textContent = Array.isArray(data.target_processes) && data.target_processes.length
+            ? data.target_processes.join(' / ')
+            : '未配置';
+    }
+    if (bindingFoundPIDsEl) {
+        bindingFoundPIDsEl.textContent = Array.isArray(data.found_pids) && data.found_pids.length
+            ? data.found_pids.join(', ')
+            : '未发现';
+    }
+    if (bindingResultSummaryEl) {
+        const successes = data.success_count ?? 0;
+        const total = data.total_count ?? 0;
+        const percentage = total > 0 ? Math.round((successes / total) * 100) : 0;
+        bindingResultSummaryEl.textContent = total > 0
+            ? `${successes} / ${total} (${percentage}%)`
+            : '0 / 0';
+    }
 
-    // 创建新的日志行
-    const logLine = document.createElement('div');
-    logLine.className = 'log-line';
-    logLine.classList.add(className); // 添加分类 class
-    logLine.textContent = msg;
-    logContainer.appendChild(logLine);
+    if (bindingProcessesEl) {
+        bindingProcessesEl.innerHTML = '';
+        if (Array.isArray(data.processes) && data.processes.length) {
+            data.processes.forEach((entry) => {
+                const row = document.createElement('div');
+                row.className = `process-row ${entry.success ? 'success' : 'error'}`;
 
-    // 如果之前就在底部，则自动滚动
-    if (isScrolledToBottom) {
-        logContainer.scrollTop = logContainer.scrollHeight;
+                const pid = document.createElement('div');
+                pid.className = 'process-pid';
+                pid.textContent = `PID ${entry.pid}`;
+
+                const message = document.createElement('div');
+                message.className = 'process-message';
+                message.textContent = entry.message;
+
+                row.appendChild(pid);
+                row.appendChild(message);
+                bindingProcessesEl.appendChild(row);
+            });
+        } else {
+            const empty = document.createElement('div');
+            empty.className = 'binding-empty';
+            empty.textContent = '未执行绑定或未返回结果。';
+            bindingProcessesEl.appendChild(empty);
+        }
+    }
+}
+
+function formatCoreMode(mode) {
+    switch (mode) {
+        case 'efficient':
+            return '能效核优先';
+        case 'fallback':
+            return '备用方案';
+        case 'reuse':
+            return '沿用上次选择';
+        default:
+            return '-';
     }
 }
 
 // --- 2. 监听 Go 后台事件 ---
 
-/**
- * 监听 'log-stream'
- * 接收 Go 后台的 Logf() 日志并显示在界面上
- */
-EventsOn('log-stream', (msg) => {
-    // 根据关键字自动分类
-    let className = 'info';
-    if (msg.includes('!!! 警告') || msg.includes('⚠️')) {
-        className = 'warn';
-    } else if (msg.includes('❌') || msg.includes('失败')) {
-        className = 'error';
-    } else if (msg.includes('✅') || msg.includes('成功')) {
-        className = 'success';
-    } else if (msg.includes('--- 云端公告 ---') || msg.includes('欢迎使用') || msg.includes('--- 第')) {
-        className = 'highlight';
-    } else if (msg.includes('--- 开始记录系统信息 ---') || msg.includes('操作系统:') || msg.includes('CPU 型号:') || msg.includes('总内存:') || msg.includes('系统架构:')) {
-        className = 'system'; // 为 systemInfo 日志使用 'system' 类
-    }
-
-    addLog(msg, className);
+EventsOn('binding-status', (payload) => {
+    renderBindingStatus(payload || {});
 });
 
 /**
@@ -86,36 +138,6 @@ EventsOn('execution-start', (executionCount) => {
         progressBarText.textContent = `... 正在执行第 ${executionCount} 次 ...`;
     }
 });
-
-/**
- * 监听 'logpath' 事件
- * 将日志路径更新到页脚
- */
-EventsOn('logpath', (path) => {
-    if (logPathEl) {
-        logPathEl.textContent = `Log: ${path}`;
-    }
-    console.log(`Log file location: ${path}`);
-});
-
-
-/**
- * 监听 'stats-update'
- * 接收 Go 后台发送的统计数据
- */
-EventsOn("stats-update", (onlineCount, totalRuns) => {
-    if (onlineUsersEl) {
-        onlineUsersEl.textContent = (onlineCount !== null && onlineCount !== undefined)
-            ? onlineCount.toLocaleString()
-            : '...';
-    }
-    if (totalRunsEl) {
-        totalRunsEl.textContent = (totalRuns !== null && totalRuns !== undefined)
-            ? totalRuns.toLocaleString()
-            : '...';
-    }
-});
-
 
 /**
  * 监听 DOMContentLoaded 事件
