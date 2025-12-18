@@ -26,7 +26,7 @@ import (
 // 云端后台 API 地址
 const (
 	// !! 警告：请将这里替换为你的真实后台服务器 API 地址
-	backendURL = "https://your-api-server.com/api"
+	backendURL = ""
 )
 
 // CloudConfig 定义了从云端获取的配置结构
@@ -63,21 +63,44 @@ func NewApp() *App {
 	}
 }
 
+// checkAdmin 检查是否拥有管理员权限
+func (a *App) checkAdmin() bool {
+	// 尝试打开物理磁盘设备，这通常需要管理员权限
+	_, err := os.Open("\\\\.\\PHYSICALDRIVE0")
+	return err == nil
+}
+
 // startup 在 Wails 启动时调用
 func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 
-	// 初始化本地文件日志
+	// 1. 初始化本地文件日志
 	err := a.initLogger()
 	if err != nil {
-		a.Logf("!!! 警告：本地日志文件创建失败: %v", err)
+		// 如果日志文件都创建失败，先尝试打印到控制台，UI 此时可能还未这就绪
+		fmt.Printf("!!! 警告：本地日志文件创建失败: %v\n", err)
 	}
 
-	// 异步初始化
+	// 2. [新增] 管理员权限检查
+	if !a.checkAdmin() {
+		a.Logf("❌ 错误：未检测到管理员权限！程序可能无法正常工作。")
+		// 弹出原生警告框
+		wailsRuntime.MessageDialog(ctx, wailsRuntime.MessageDialogOptions{
+			Type:          wailsRuntime.ErrorDialog,
+			Title:         "权限不足",
+			Message:       "本程序需要管理员权限才能绑定 CPU 核心。\n\n请关闭程序，右键选择「以管理员身份运行」。",
+			Buttons:       []string{"确定"},
+			DefaultButton: "确定",
+		})
+	} else {
+		a.Logf("✅ 已获取管理员权限。")
+	}
+
+	// 3. 异步初始化云端功能
 	go a.initClientID()
 	go a.fetchCloudConfig() // 尝试获取云端配置
 
-	// 启动主程序循环
+	// 4. 启动主程序循环
 	go a.runLoop()
 }
 
@@ -238,11 +261,10 @@ func (a *App) runLoop() {
 		a.logSystemInfo()
 
 		a.Logf("欢迎使用 Fuck your ACE！")
-		a.Logf("请以管理员方式运行本程序。")
-		a.Logf("绑定失败时，请以管理员方式重新启动程序。")
+		a.Logf("请务必保持本窗口开启。")
 
 		// 显示云端公告
-		time.Sleep(2 * time.Second)
+		time.Sleep(1 * time.Second)
 		if a.cloudConfig.Announcement != "" {
 			a.Logf("--- 云端公告 ---")
 			a.Logf(a.cloudConfig.Announcement)
@@ -276,7 +298,7 @@ func (a *App) runLoop() {
 
 // runCountdown 执行60秒倒计时，并每秒向前端发送进度
 func (a *App) runCountdown() {
-	a.Logf("... 60秒后将开始下一次执行 ...")
+	// a.Logf("... 60秒后将开始下一次执行 ...") // [降噪] 移除这行，因为它没太大意义
 	for i := 1; i <= 60; i++ {
 		// 向前端发送 (当前秒数, 总执行次数)
 		wailsRuntime.EventsEmit(a.ctx, "progress-update", i, a.executionCount)
@@ -316,27 +338,22 @@ func (a *App) logSystemInfo() {
 		a.Logf("文件日志记录器未初始化。") // 也在UI上显示
 		return
 	}
-	a.Logf("--- 开始记录系统信息 ---")
+	// [降噪] 系统信息只记录到文件，不再占用UI版面，除非是第一行
+	a.fileLogger.Println("--- 开始记录系统信息 ---")
 	if hostInfo, err := host.Info(); err == nil {
-		a.Logf("操作系统: %s (版本: %s)", hostInfo.Platform, hostInfo.PlatformVersion)
-		a.Logf("系统架构: %s", hostInfo.KernelArch)
-	} else {
-		a.Logf("获取操作系统信息失败: %v", err)
+		a.fileLogger.Printf("操作系统: %s (版本: %s)", hostInfo.Platform, hostInfo.PlatformVersion)
+		a.fileLogger.Printf("系统架构: %s", hostInfo.KernelArch)
 	}
 	if cpuInfo, err := cpu.Info(); err == nil && len(cpuInfo) > 0 {
 		cpuModel := strings.TrimSpace(cpuInfo[0].ModelName)
-		a.Logf("CPU 型号: %s", cpuModel)
-		a.Logf("物理核心: %d, 逻辑核心: %d", cpuInfo[0].Cores, runtime.NumCPU())
-	} else {
-		a.Logf("获取 CPU 信息失败: %v", err)
+		a.fileLogger.Printf("CPU 型号: %s", cpuModel)
+		a.fileLogger.Printf("物理核心: %d, 逻辑核心: %d", cpuInfo[0].Cores, runtime.NumCPU())
 	}
 	if memInfo, err := mem.VirtualMemory(); err == nil {
 		totalGB := float64(memInfo.Total) / (1024 * 1024 * 1024)
-		a.Logf("总内存: %.2f GB", totalGB)
-	} else {
-		a.Logf("获取内存信息失败: %v", err)
+		a.fileLogger.Printf("总内存: %.2f GB", totalGB)
 	}
-	a.Logf("--- 系统信息记录完毕 ---")
+	a.fileLogger.Println("--- 系统信息记录完毕 ---")
 }
 
 // Logf 会将日志同时写入文件和发送到 UI 界面
@@ -355,60 +372,97 @@ func (a *App) Logf(format string, args ...interface{}) {
 	time.Sleep(100 * time.Millisecond)
 }
 
+// [新增] logVerbose 用于处理“啰嗦”的日志
+// 如果是第一次运行，或者 forceUI 为 true，则显示在 UI 上。
+// 否则只写入文件，保持 UI 清爽。
+func (a *App) logVerbose(forceUI bool, format string, args ...interface{}) {
+	// 如果是第一次执行，或者强制显示（比如出错了），则调用 Logf (UI + File)
+	if a.executionCount <= 1 || forceUI {
+		a.Logf(format, args...)
+		return
+	}
+
+	// 否则只写入本地文件
+	if a.fileLogger != nil {
+		msg := fmt.Sprintf(format, args...)
+		a.fileLogger.Println(strings.TrimSpace(msg))
+	}
+}
+
 // RunBindingProcess 执行核心绑定流程
 func (a *App) RunBindingProcess() {
 	// 原子增加执行次数
 	atomic.AddUint64(&a.executionCount, 1)
 
-	// 向前端发送 "执行开始" 事件，并附带当前次数
+	// 向前端发送 "执行开始" 事件
 	wailsRuntime.EventsEmit(a.ctx, "execution-start", a.executionCount)
 
-	a.Logf("----------------------------------")
-	a.Logf("--- 第 %d 次执行 ---", a.executionCount)
-	a.Logf("开始执行绑定流程...")
+	// [降噪] 后续的成功信息使用 logVerbose，forceUI=false
+	a.logVerbose(false, "----------------------------------")
+	a.logVerbose(false, "--- 第 %d 次执行 ---", a.executionCount)
+	a.logVerbose(false, "开始执行绑定流程...")
+
 	var targetCore int
 
 	cores, err := getEfficientCores()
 	if err != nil {
-		a.Logf("⚠️  %v，将启用备用方案。", err)
+		// [降噪] 即使出错，如果是备用方案也只提示一次详细信息
+		// 但如果是严重错误，我们可能希望显示。这里保留详细信息，因为这很重要。
+		a.logVerbose(true, "⚠️ %v，将启用备用方案。", err)
 		totalCores := runtime.NumCPU()
 		if totalCores <= 0 {
 			totalCores = 1
 		}
 		targetCore = totalCores - 1 // 绑定到最后一个逻辑核心
-		a.Logf("✅  启用备用方案：绑定到最后一个逻辑核心 (CPU %d)", targetCore)
+		a.logVerbose(false, "✅ 启用备用方案：绑定到最后一个逻辑核心 (CPU %d)", targetCore)
 	} else {
 		targetCore = cores[0] // 绑定到第一个能效核
-		a.Logf("✅  识别到能效核：%v", cores)
-		a.Logf("✅  采用最佳方案：绑定到第一个能效核 (CPU %d)", targetCore)
+		a.logVerbose(false, "✅ 识别到能效核：%v", cores)
+		a.logVerbose(false, "✅ 采用最佳方案：绑定到第一个能效核 (CPU %d)", targetCore)
 	}
 
 	pids, err := a.getTargetPIDs()
 	if err != nil {
-		a.Logf("❌ 获取目标进程失败：%v", err)
+		// [注意] 找不到目标进程通常不是错误（没开游戏），所以不需要红色报警，但可以显示在UI
+		// 这里选择：如果是第一次，显示。后续如果不显示，用户可能以为程序死了。
+		// 折中方案：如果找不到进程，且是后续运行，只在文件里记录，UI 上保持安静。
+		a.logVerbose(false, "❌ 获取目标进程失败（可能未运行）：%v", err)
 		return
 	}
 
 	if len(pids) == 0 {
 		targetProcsStr := strings.Join(a.targetProcesses, " / ")
-		a.Logf("ℹ️  未找到目标进程 (%s)", targetProcsStr)
+		a.logVerbose(false, "ℹ️ 未找到目标进程 (%s)", targetProcsStr)
 	} else {
-		a.Logf("✅ 找到目标进程 PID：%v", pids)
+		// 找到了进程！这是一个重要事件。
+		// 如果是第 2+ 次运行，我们依然希望能看到它起作用了，但不要刷屏。
+		// 策略：如果绑定成功，且是第 2+ 次，只输出一行简洁日志。
+
+		if a.executionCount > 1 {
+			// [降噪] 简洁模式
+			a.Logf("✅ [第%d次] 成功捕获并处理 PID: %v", a.executionCount, pids)
+		} else {
+			// 详细模式
+			a.Logf("✅ 找到目标进程 PID：%v", pids)
+		}
+
 		successCount := 0
 		for _, pid := range pids {
 			if err := bindToEfficientCore(pid, targetCore); err != nil {
+				// 错误始终显示
 				a.Logf("❌ PID=%d 绑定失败：%v", pid, err)
 			} else {
-				a.Logf("✅ PID=%d 已绑定到核心 %d，并设为最低优先级", pid, targetCore)
+				// 成功信息降噪
+				a.logVerbose(false, "✅ PID=%d 已绑定到核心 %d，并设为最低优先级", pid, targetCore)
 				successCount++
 			}
 		}
-		a.Logf("...绑定完成 (成功 %d / 总共 %d)", successCount, len(pids))
+		a.logVerbose(false, "...绑定完成 (成功 %d / 总共 %d)", successCount, len(pids))
 	}
-	a.Logf("----------------------------------")
+	a.logVerbose(false, "----------------------------------")
 }
 
-// --- Windows API 动态加载 ---
+// --- Windows API 动态加载 (保持不变) ---
 var (
 	modkernel32 = windows.NewLazySystemDLL("kernel32.dll")
 
@@ -416,7 +470,7 @@ var (
 	procSetProcessAffinityMask           = modkernel32.NewProc("SetProcessAffinityMask")
 )
 
-// --- Windows API 帮助函数 ---
+// --- Windows API 帮助函数 (保持不变) ---
 
 func _getLogicalProcessorInformationEx(relationship LOGICAL_PROCESSOR_RELATIONSHIP, buffer *byte, length *uint32) (err error) {
 	ret, _, err := procGetLogicalProcessorInformationEx.Call(
@@ -441,7 +495,7 @@ func _setProcessAffinityMask(handle windows.Handle, mask uintptr) (err error) {
 	return nil
 }
 
-// --- Windows API 常量和结构体 ---
+// --- Windows API 常量和结构体 (保持不变) ---
 type LOGICAL_PROCESSOR_RELATIONSHIP uint32
 
 const (
@@ -468,7 +522,7 @@ type SYSTEM_LOGICAL_PROCESSOR_INFORMATION_EX struct {
 	Processor    PROCESSOR_RELATIONSHIP
 }
 
-// getEfficientCores 查找能效核 (E-Cores)
+// getEfficientCores 查找能效核 (E-Cores) (保持不变)
 func getEfficientCores() ([]int, error) {
 	var bufferSize uint32 = 0
 
@@ -527,7 +581,7 @@ func getEfficientCores() ([]int, error) {
 	return efficientCores, nil
 }
 
-// getTargetPIDs 查找目标进程的 PID 列表
+// getTargetPIDs 查找目标进程的 PID 列表 (保持不变)
 func (a *App) getTargetPIDs() ([]int, error) {
 	targetMap := make(map[string]bool)
 	for _, proc := range a.targetProcesses {
@@ -572,7 +626,7 @@ func (a *App) getTargetPIDs() ([]int, error) {
 	return pids, nil
 }
 
-// bindToEfficientCore 将指定 PID 绑定到核心并设置优先级
+// bindToEfficientCore 将指定 PID 绑定到核心并设置优先级 (保持不变)
 func bindToEfficientCore(pid int, core int) error {
 	// 使用最小权限，避免杀毒软件误报
 	handle, err := windows.OpenProcess(windows.PROCESS_SET_INFORMATION|windows.PROCESS_QUERY_INFORMATION, false, uint32(pid))
