@@ -1,6 +1,6 @@
 #  FuckYourACE
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue.svg)](LICENSE)
 [![Release](https://img.shields.io/github/v/release/xiaoxinmm/FuckYourACE.svg?style=flat-square)](https://github.com/xiaoxinmm/FuckYourACE/releases)
 
 <center> 
@@ -90,5 +90,5 @@
 
 ## 📜 许可 (License)
 
-本项目采用 [MIT License](LICENSE) 授权。
+本项目采用 [AGPL-3.0 License](LICENSE) 授权。
 
